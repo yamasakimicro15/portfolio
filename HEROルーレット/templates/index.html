@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>本日のヒーロー</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="input-container">
+        <h1>運勢を占う</h1>
+        <form id="people-form">
+            <!-- 15人分の氏名と生年月日の入力欄を作成 -->
+            {% for i in range(15) %}
+                <div>
+                    <label>氏名:</label>
+                    <input type="text" name="name{{ i }}" required>
+                    <label>生年月日 (YYYY-MM-DD):</label>
+                    <input type="date" name="birthdate{{ i }}" required>
+                </div>
+            {% endfor %}
+            <button type="submit">占う</button>
+        </form>
+    </div>
+
+    <div id="result-container">
+        <!-- 占い結果を表示するための空のコンテナ -->
+        <div id="fortune" class="result"></div>
+        <div id="zodiac" class="result"></div>
+        <div id="lucky-item" class="result"></div>
+        <div id="warning" class="result"></div>
+    </div>
+
+    <script>
+        document.getElementById('people-form').addEventListener('submit', function(event) {
+            event.preventDefault();  // フォームのデフォルトの送信を防ぐ
+
+            const formData = new FormData(event.target);  // フォームデータを取得
+            const people = [];
+
+            for (let i = 0; i < 15; i++) {
+                const name = formData.get(`name${i}`);
+                const birthdate = formData.get(`birthdate${i}`);
+                if (name && birthdate) {
+                    people.push({ name, birthdate });
+                }
+            }
+
+            if (people.length > 0) {
+                const selectedPerson = people[Math.floor(Math.random() * people.length)];
+                const fortunes = {{ fortunes | tojson }};
+                const luckyItems = {{ lucky_items | tojson }};
+                const warnings = {{ warnings | tojson }};
+
+                const result = {
+                    name: selectedPerson.name,
+                    birthdate: selectedPerson.birthdate,
+                    zodiacSign: getZodiacSign(selectedPerson.birthdate),
+                    fortune: fortunes[Math.floor(Math.random() * fortunes.length)],
+                    luckyItem: luckyItems[Math.floor(Math.random() * luckyItems.length)],
+                    warning: warnings[Math.floor(Math.random() * warnings.length)]
+                };
+
+                displayResults(result);
+                saveResult(result);
+            }
+        });
+
+        function displayResults(result) {
+            document.getElementById('fortune').innerText = `${result.name}さんの運勢は: ${result.fortune}`;
+            document.getElementById('zodiac').innerText = `あなたの星座は: ${result.zodiacSign}`;
+            document.getElementById('lucky-item').innerText = `今日のラッキーアイテム: ${result.luckyItem}`;
+            document.getElementById('warning').innerText = `本日の注意喚起: ${result.warning}`;
+        }
+
+        function getZodiacSign(birthdate) {
+            const date = new Date(birthdate);
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const zodiacRanges = [
+                [{ month: 3, day: 21 }, { month: 4, day: 19 }, "牡羊座"],
+                [{ month: 4, day: 20 }, { month: 5, day: 20 }, "牡牛座"],
+                [{ month: 5, day: 21 }, { month: 6, day: 20 }, "双子座"],
+                [{ month: 6, day: 21 }, { month: 7, day: 22 }, "蟹座"],
+                [{ month: 7, day: 23 }, { month: 8, day: 22 }, "獅子座"],
+                [{ month: 8, day: 23 }, { month: 9, day: 22 }, "乙女座"],
+                [{ month: 9, day: 23 }, { month: 10, day: 22 }, "天秤座"],
+                [{ month: 10, day: 23 }, { month: 11, day: 21 }, "蠍座"],
+                [{ month: 11, day: 22 }, { month: 12, day: 21 }, "射手座"],
+                [{ month: 12, day: 22 }, { month: 1, day: 19 }, "山羊座"],
+                [{ month: 1, day: 20 }, { month: 2, day: 18 }, "水瓶座"],
+                [{ month: 2, day: 19 }, { month: 3, day: 20 }, "魚座"]
+            ];
+            for (const [start, end, sign] of zodiacRanges) {
+                if (
+                    (month === start.month && day >= start.day) ||
+                    (month === end.month && day <= end.day)
+                ) {
+                    return sign;
+                }
+            }
+            return "不明";
+        }
+
+        function saveResult(result) {
+            fetch('/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(result)
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.status === 'success') {
+                      console.log('結果が保存されました。');
+                  } else {
+                      console.error('保存に失敗しました。');
+                  }
+              });
+        }
+    </script>
+</body>
+</html>
